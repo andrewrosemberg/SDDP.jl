@@ -309,10 +309,27 @@ function initialize_belief(model::PolicyGraph{T}) where {T}
     current_belief[model.root_node] = 1.0
     return current_belief
 end
+# Build problem
+function _subproblem_build!(model::PolicyGraph{T},isforward::Bool) where {T}
+    policy_graph = PolicyGraph( model.ext[:param][:builder], 
+                                model.ext[:param][:graph];
+                                sense = model.ext[:param][:sense],
+                                bellman_function = model.ext[:param][:bellman_function],
+                                lower_bound = model.ext[:param][:lower_bound],
+                                upper_bound = model.ext[:param][:upper_bound],
+                                optimizer = model.ext[:param][:optimizer],
+                                direct_mode = model.ext[:param][:direct_mode],
+                                isforward = isforward)
+    transfer_cuts(policy_graph, model)
+    model = policy_graph
+    return nothing
+end
 
 # Internal function: perform a single forward pass of the SDDP algorithm given
 # options.
 function forward_pass(model::PolicyGraph{T}, options::Options) where {T}
+    # Build problem
+    _subproblem_build!(model, true)
     # First up, sample a scenario. Note that if a cycle is detected, this will
     # return the cycle node as well.
     TimerOutputs.@timeit SDDP_TIMER "sample_scenario" begin
@@ -445,7 +462,9 @@ function backward_pass(
         sampled_states::Vector{Dict{Symbol, Float64}},
         objective_states::Vector{NTuple{N, Float64}},
         belief_states::Vector{Tuple{Int, Dict{T, Float64}}}) where {T, NoiseType, N}
-    for index in length(scenario_path):-1:1
+
+        _subproblem_build!(model, false)
+        for index in length(scenario_path):-1:1
         outgoing_state = sampled_states[index]
         objective_state = get(objective_states, index, nothing)
         partition_index, belief_state = get(belief_states, index, (0, nothing))

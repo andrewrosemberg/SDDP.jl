@@ -459,7 +459,8 @@ function PolicyGraph(builder::Function, graph::Graph{T};
                      lower_bound = -Inf,
                      upper_bound = Inf,
                      optimizer = nothing,
-                     direct_mode = true) where {T}
+                     direct_mode = true,
+                     isforward::Bool=false) where {T}
     # Spend a one-off cost validating the graph.
     _validate_graph(graph)
     # Construct a basic policy graph. We will add to it in the remainder of this
@@ -475,6 +476,16 @@ function PolicyGraph(builder::Function, graph::Graph{T};
                 lower_bound = lower_bound, upper_bound = upper_bound)
         end
     end
+    # Save parameters in ext Dict
+    policy_graph.ext[:param] = Dict(:builder => builder,
+                                    :graph => graph,
+                                    :sense => sense,
+                                    :bellman_function => bellman_function,
+                                    :lower_bound => lower_bound,
+                                    :upper_bound => upper_bound,
+                                    :optimizer => optimizer,
+                                    :direct_mode => direct_mode
+                                    )
     # Initialize nodes.
     for (node_index, children) in graph.nodes
         if node_index == graph.root_node
@@ -503,7 +514,7 @@ function PolicyGraph(builder::Function, graph::Graph{T};
         subproblem.ext[:sddp_policy_graph] = policy_graph
         policy_graph.nodes[node_index] = subproblem.ext[:sddp_node] = node
         JuMP.set_objective_sense(subproblem, policy_graph.objective_sense)
-        builder(subproblem, node_index)
+        builder(subproblem, node_index, isforward)
         # Add a dummy noise here so that all nodes have at least one noise term.
         if length(node.noise_terms) == 0
             push!(node.noise_terms, Noise(nothing, 1.0))

@@ -146,3 +146,20 @@ end
     @test length(model[(1, 1)].bellman_function.global_theta.cut_oracle.cuts) == 1
     @test length(model[(1, 2)].bellman_function.global_theta.cut_oracle.cuts) == 1
 end
+
+@testset "Forward Pass Bool" begin
+    model = SDDP.LinearPolicyGraph(
+                stages = 2,
+                lower_bound = 0.0,
+                optimizer = with_optimizer(GLPK.Optimizer)
+                    ) do sp, t, isforward
+        @variable(sp, x[i=1:2] >= i, SDDP.State, initial_value = 2i)
+        @stageobjective(sp, x[1].out + x[2].out)
+
+        if !isforward
+            sp.ext[:isforward] = false
+        end
+    end
+    SDDP.train(model,iteration_limit=5)
+    @test !model[1].subproblem.ext[:isforward]
+end
