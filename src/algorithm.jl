@@ -311,15 +311,10 @@ function initialize_belief(model::PolicyGraph{T}) where {T}
 end
 # Build problem
 function _subproblem_build!(model::PolicyGraph{T},isforward::Bool) where {T}
-    policy_graph = PolicyGraph( model.ext[:param][:builder], 
-                                model.ext[:param][:graph];
-                                sense = model.ext[:param][:sense],
-                                bellman_function = model.ext[:param][:bellman_function],
-                                lower_bound = model.ext[:param][:lower_bound],
-                                upper_bound = model.ext[:param][:upper_bound],
-                                optimizer = model.ext[:param][:optimizer],
-                                direct_mode = model.ext[:param][:direct_mode],
-                                isforward = isforward)
+    policy_graph = PolicyGraph( model.ext[:builder], 
+                                model.ext[:graph];                                
+                                isforward = isforward,
+                                model.ext[:param]...)
     transfer_cuts(policy_graph, model)
     return policy_graph
 end

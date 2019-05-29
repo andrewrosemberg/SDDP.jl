@@ -459,6 +459,8 @@ function PolicyGraph(builder::Function, graph::Graph{T};
                      lower_bound = -Inf,
                      upper_bound = Inf,
                      optimizer = nothing,
+                     optimizer_backward = optimizer,
+                     optimizer_forward = optimizer_backward,
                      direct_mode = true,
                      isforward::Bool=false) where {T}
     # Spend a one-off cost validating the graph.
@@ -477,21 +479,27 @@ function PolicyGraph(builder::Function, graph::Graph{T};
         end
     end
     # Save parameters in ext Dict
-    policy_graph.ext[:param] = Dict(:builder => builder,
-                                    :graph => graph,
-                                    :sense => sense,
+    policy_graph.ext[:builder] = builder
+    policy_graph.ext[:graph] = graph
+    policy_graph.ext[:param] = Dict(:sense => sense,
                                     :bellman_function => bellman_function,
                                     :lower_bound => lower_bound,
                                     :upper_bound => upper_bound,
                                     :optimizer => optimizer,
+                                    :optimizer_backward => optimizer_backward,
+                                    :optimizer_forward => optimizer_forward,
                                     :direct_mode => direct_mode
                                     )
     # Initialize nodes.
     for (node_index, children) in graph.nodes
         if node_index == graph.root_node
             continue
+        end        
+        subproblem = if isforward
+            construct_subproblem(optimizer_forward, direct_mode)
+        else
+            construct_subproblem(optimizer_backward, direct_mode)
         end
-        subproblem = construct_subproblem(optimizer, direct_mode)
         node = Node(
             node_index,
             subproblem,
