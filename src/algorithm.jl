@@ -321,17 +321,7 @@ end
 
 # Internal function: perform a single forward pass of the SDDP algorithm given
 # options.
-function forward_pass(model::PolicyGraph{T}, options_aux::Options) where {T}
-    # Build problem
-    model = _subproblem_build!(model, true)
-    options = Options(
-        model,
-        model.initial_root_state,
-        options_aux.sampling_scheme,
-        options_aux.risk_measures,
-        options_aux.cycle_discretization_delta,
-        options_aux.refine_at_similar_nodes
-    )
+function forward_pass(model::PolicyGraph{T}, options::Options) where {T}
     # First up, sample a scenario. Note that if a cycle is detected, this will
     # return the cycle node as well.
     TimerOutputs.@timeit SDDP_TIMER "sample_scenario" begin
@@ -459,21 +449,12 @@ end
 # with include_last_node = false)
 function backward_pass(
         model::PolicyGraph{T},
-        options_aux::Options,
+        options::Options,
         scenario_path::Vector{Tuple{T, NoiseType}},
         sampled_states::Vector{Dict{Symbol, Float64}},
         objective_states::Vector{NTuple{N, Float64}},
         belief_states::Vector{Tuple{Int, Dict{T, Float64}}}) where {T, NoiseType, N}
-
-        model = _subproblem_build!(model, false)
-        options = Options(
-        model,
-        model.initial_root_state,
-        options_aux.sampling_scheme,
-        options_aux.risk_measures,
-        options_aux.cycle_discretization_delta,
-        options_aux.refine_at_similar_nodes
-    )
+        
         for index in length(scenario_path):-1:1
         outgoing_state = sampled_states[index]
         objective_state = get(objective_states, index, nothing)
@@ -835,9 +816,53 @@ function train(
         has_converged = false
         while !has_converged
             TimerOutputs.@timeit SDDP_TIMER "forward_pass" begin
+                # Build problem
+                model = _subproblem_build!(model, true)
+                options = Options(
+                    model,
+                    model.initial_root_state,
+                    sampling_scheme,
+                    risk_measure,
+                    cycle_discretization_delta,
+                    refine_at_similar_nodes
+                )
+                # Update the nodes with the selected cut type (SINGLE_CUT or MULTI_CUT)
+                # and the cut deletion minimum.
+                if cut_deletion_minimum < 0
+                    cut_deletion_minimum = typemax(Int)
+                end
+                for (key, node) in model.nodes
+                    node.bellman_function.cut_type = cut_type
+                    node.bellman_function.global_theta.cut_oracle.deletion_minimum = cut_deletion_minimum
+                    for oracle in node.bellman_function.local_thetas
+                        oracle.cut_oracle.deletion_minimum = cut_deletion_minimum
+                    end
+                end
                 forward_trajectory = forward_pass(model, options)
             end
             TimerOutputs.@timeit SDDP_TIMER "backward_pass" begin
+                # Build problem
+                model = _subproblem_build!(model, false)
+                options = Options(
+                    model,
+                    model.initial_root_state,
+                    sampling_scheme,
+                    risk_measure,
+                    cycle_discretization_delta,
+                    refine_at_similar_nodes
+                )
+                # Update the nodes with the selected cut type (SINGLE_CUT or MULTI_CUT)
+                # and the cut deletion minimum.
+                if cut_deletion_minimum < 0
+                    cut_deletion_minimum = typemax(Int)
+                end
+                for (key, node) in model.nodes
+                    node.bellman_function.cut_type = cut_type
+                    node.bellman_function.global_theta.cut_oracle.deletion_minimum = cut_deletion_minimum
+                    for oracle in node.bellman_function.local_thetas
+                        oracle.cut_oracle.deletion_minimum = cut_deletion_minimum
+                    end
+                end
                 backward_pass(
                     model, options, forward_trajectory.scenario_path,
                     forward_trajectory.sampled_states,
