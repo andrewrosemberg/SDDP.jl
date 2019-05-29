@@ -485,7 +485,6 @@ function PolicyGraph(builder::Function, graph::Graph{T};
                                     :bellman_function => bellman_function,
                                     :lower_bound => lower_bound,
                                     :upper_bound => upper_bound,
-                                    :optimizer => optimizer,
                                     :optimizer_backward => optimizer_backward,
                                     :optimizer_forward => optimizer_forward,
                                     :direct_mode => direct_mode

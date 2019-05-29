@@ -314,6 +314,7 @@ function _subproblem_build!(model::PolicyGraph{T},isforward::Bool) where {T}
     policy_graph = PolicyGraph( model.ext[:builder], 
                                 model.ext[:graph];                                
                                 isforward = isforward,
+                                optimizer = isforward ? model.ext[:param][:optimizer_forward] : model.ext[:param][:optimizer_backward],
                                 model.ext[:param]...)
     transfer_cuts(policy_graph, model)
     return policy_graph
