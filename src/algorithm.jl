@@ -887,6 +887,8 @@ function _simulate(model::PolicyGraph{T},
                    sampling_scheme::AbstractSamplingScheme,
                    custom_recorders::Dict{Symbol, Function},
                    require_duals::Bool) where {T}
+    # Build problem
+    _subproblem_build!(model, true)
     # Sample a scenario path.
     scenario_path, terminated_due_to_cycle = sample_scenario(
         model, sampling_scheme)
