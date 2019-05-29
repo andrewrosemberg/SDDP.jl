@@ -328,7 +328,7 @@ function forward_pass(model::PolicyGraph{T}, options_aux::Options) where {T}
         model,
         model.initial_root_state,
         options_aux.sampling_scheme,
-        options_aux.risk_measure,
+        options_aux.risk_measures,
         options_aux.cycle_discretization_delta,
         options_aux.refine_at_similar_nodes
     )
@@ -470,7 +470,7 @@ function backward_pass(
         model,
         model.initial_root_state,
         options_aux.sampling_scheme,
-        options_aux.risk_measure,
+        options_aux.risk_measures,
         options_aux.cycle_discretization_delta,
         options_aux.refine_at_similar_nodes
     )
