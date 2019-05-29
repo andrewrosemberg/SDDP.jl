@@ -454,7 +454,7 @@ function backward_pass(
         sampled_states::Vector{Dict{Symbol, Float64}},
         objective_states::Vector{NTuple{N, Float64}},
         belief_states::Vector{Tuple{Int, Dict{T, Float64}}}) where {T, NoiseType, N}
-        
+
         for index in length(scenario_path):-1:1
         outgoing_state = sampled_states[index]
         objective_state = get(objective_states, index, nothing)
@@ -817,52 +817,18 @@ function train(
         while !has_converged
             TimerOutputs.@timeit SDDP_TIMER "forward_pass" begin
                 # Build problem
-                model = _subproblem_build!(model, true)
-                options = Options(
-                    model,
-                    model.initial_root_state,
+                model_f = _subproblem_build!(model, true)
+                options_f = Options(
+                    model_f,
+                    model_f.initial_root_state,
                     sampling_scheme,
                     risk_measure,
                     cycle_discretization_delta,
                     refine_at_similar_nodes
                 )
-                # Update the nodes with the selected cut type (SINGLE_CUT or MULTI_CUT)
-                # and the cut deletion minimum.
-                if cut_deletion_minimum < 0
-                    cut_deletion_minimum = typemax(Int)
-                end
-                for (key, node) in model.nodes
-                    node.bellman_function.cut_type = cut_type
-                    node.bellman_function.global_theta.cut_oracle.deletion_minimum = cut_deletion_minimum
-                    for oracle in node.bellman_function.local_thetas
-                        oracle.cut_oracle.deletion_minimum = cut_deletion_minimum
-                    end
-                end
-                forward_trajectory = forward_pass(model, options)
+                forward_trajectory = forward_pass(model_f, options_f)
             end
-            TimerOutputs.@timeit SDDP_TIMER "backward_pass" begin
-                # Build problem
-                model = _subproblem_build!(model, false)
-                options = Options(
-                    model,
-                    model.initial_root_state,
-                    sampling_scheme,
-                    risk_measure,
-                    cycle_discretization_delta,
-                    refine_at_similar_nodes
-                )
-                # Update the nodes with the selected cut type (SINGLE_CUT or MULTI_CUT)
-                # and the cut deletion minimum.
-                if cut_deletion_minimum < 0
-                    cut_deletion_minimum = typemax(Int)
-                end
-                for (key, node) in model.nodes
-                    node.bellman_function.cut_type = cut_type
-                    node.bellman_function.global_theta.cut_oracle.deletion_minimum = cut_deletion_minimum
-                    for oracle in node.bellman_function.local_thetas
-                        oracle.cut_oracle.deletion_minimum = cut_deletion_minimum
-                    end
-                end
+            TimerOutputs.@timeit SDDP_TIMER "backward_pass" begin                
                 backward_pass(
                     model, options, forward_trajectory.scenario_path,
                     forward_trajectory.sampled_states,
