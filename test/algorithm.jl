@@ -158,8 +158,13 @@ end
 
         if !isforward
             sp.ext[:isforward] = false
+        else
+            @variable(sp, b[i=1:2] >= i*2)
+            @constraint(sp, b[1]+x[1].out + x[2].out>=5)
         end
     end
     SDDP.train(model,iteration_limit=5)
     @test !model[1].subproblem.ext[:isforward]
+    simulations = SDDP.simulate(model, 1, [:x,:b])
+    @test simulations[1][1][:b][1] == 2
 end

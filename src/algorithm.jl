@@ -321,15 +321,14 @@ function _subproblem_build!(model::PolicyGraph{T},isforward::Bool) where {T}
                                 direct_mode = model.ext[:param][:direct_mode],
                                 isforward = isforward)
     transfer_cuts(policy_graph, model)
-    model = policy_graph
-    return nothing
+    return policy_graph
 end
 
 # Internal function: perform a single forward pass of the SDDP algorithm given
 # options.
 function forward_pass(model::PolicyGraph{T}, options::Options) where {T}
     # Build problem
-    _subproblem_build!(model, true)
+    model = _subproblem_build!(model, true)
     # First up, sample a scenario. Note that if a cycle is detected, this will
     # return the cycle node as well.
     TimerOutputs.@timeit SDDP_TIMER "sample_scenario" begin
@@ -463,7 +462,7 @@ function backward_pass(
         objective_states::Vector{NTuple{N, Float64}},
         belief_states::Vector{Tuple{Int, Dict{T, Float64}}}) where {T, NoiseType, N}
 
-        _subproblem_build!(model, false)
+        model = _subproblem_build!(model, false)
         for index in length(scenario_path):-1:1
         outgoing_state = sampled_states[index]
         objective_state = get(objective_states, index, nothing)
@@ -888,7 +887,7 @@ function _simulate(model::PolicyGraph{T},
                    custom_recorders::Dict{Symbol, Function},
                    require_duals::Bool) where {T}
     # Build problem
-    _subproblem_build!(model, true)
+    model = _subproblem_build!(model, true)
     # Sample a scenario path.
     scenario_path, terminated_due_to_cycle = sample_scenario(
         model, sampling_scheme)
