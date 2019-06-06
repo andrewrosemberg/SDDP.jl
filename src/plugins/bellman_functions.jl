@@ -527,17 +527,25 @@ function transfer_cuts(model::PolicyGraph{T},oldmodel::PolicyGraph{T};digts::Int
             "risk_set_cuts" => Vector{Float64}[]
         )
         for cut in node.bellman_function.global_theta.cut_oracle.cuts
+            cut_coef_aux = copy(cut.coefficients)
+            for (ky,val) in cut_coef_aux
+                cut_coef_aux[ky] = round.(val,digits=digts)
+            end
             push!(node_cuts["single_cuts"], Dict(
                 "intercept" => round.(cut.intercept,digits=digts),
-                "coefficients" => round.(copy(cut.coefficients),digits=digts)
+                "coefficients" => cut_coef_aux
             ))
         end
         for (i, theta) in enumerate(node.bellman_function.local_thetas)
             for cut in theta.cut_oracle.cuts
+                cut_coef_aux = copy(cut.coefficients)
+                for (ky,val) in cut_coef_aux
+                    cut_coef_aux[ky] = round.(val,digits=digts)
+                end
                 push!(node_cuts["multi_cuts"], Dict(
                     "realization" => i,
                     "intercept" => round.(cut.intercept,digits=digts),
-                    "coefficients" => round.(copy(cut.coefficients),digits=digts)
+                    "coefficients" => cut_coef_aux
                 ))
             end
         end
