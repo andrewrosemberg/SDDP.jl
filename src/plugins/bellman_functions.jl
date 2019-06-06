@@ -512,7 +512,7 @@ end
 
 Build cuts.
 """
-function transfer_cuts(model::PolicyGraph{T},oldmodel::PolicyGraph{T}) where {T}
+function transfer_cuts(model::PolicyGraph{T},oldmodel::PolicyGraph{T};digts::Int=7) where {T}
     node_name_parser = _node_name_parser
     cuts = Dict{String, Any}[]
     for (node_name, node) in oldmodel.nodes
@@ -528,16 +528,16 @@ function transfer_cuts(model::PolicyGraph{T},oldmodel::PolicyGraph{T}) where {T}
         )
         for cut in node.bellman_function.global_theta.cut_oracle.cuts
             push!(node_cuts["single_cuts"], Dict(
-                "intercept" => cut.intercept,
-                "coefficients" => copy(cut.coefficients)
+                "intercept" => round.(cut.intercept,digits=digts),
+                "coefficients" => round.(copy(cut.coefficients),digits=digts)
             ))
         end
         for (i, theta) in enumerate(node.bellman_function.local_thetas)
             for cut in theta.cut_oracle.cuts
                 push!(node_cuts["multi_cuts"], Dict(
                     "realization" => i,
-                    "intercept" => cut.intercept,
-                    "coefficients" => copy(cut.coefficients)
+                    "intercept" => round.(cut.intercept,digits=digts),
+                    "coefficients" => round.(copy(cut.coefficients),digits=digts)
                 ))
             end
         end
