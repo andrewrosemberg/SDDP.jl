@@ -815,18 +815,22 @@ function train(
         start_time = time()
         iteration_count = 1
         has_converged = false
+
+        # Build problem
+        model_f = _subproblem_build!(model, true)
+        options_f = Options(
+            model_f,
+            model_f.initial_root_state,
+            sampling_scheme,
+            risk_measure,
+            cycle_discretization_delta,
+            refine_at_similar_nodes
+        )
+
         while !has_converged
             TimerOutputs.@timeit SDDP_TIMER "forward_pass" begin
-                # Build problem
-                model_f = _subproblem_build!(model, true)
-                options_f = Options(
-                    model_f,
-                    model_f.initial_root_state,
-                    sampling_scheme,
-                    risk_measure,
-                    cycle_discretization_delta,
-                    refine_at_similar_nodes
-                )
+                # transfer cuts
+                transfer_cuts(model_f, model)
                 forward_trajectory = forward_pass(model_f, options_f)
             end
             TimerOutputs.@timeit SDDP_TIMER "backward_pass" begin                
