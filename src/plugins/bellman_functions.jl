@@ -512,7 +512,7 @@ end
 
 Build cuts.
 """
-function transfer_cuts(model::PolicyGraph{T},oldmodel::PolicyGraph{T};digts::Int=7) where {T}
+function transfer_cuts(model::PolicyGraph{T},oldmodel::PolicyGraph{T};digts::Int=3) where {T}
     node_name_parser = _node_name_parser
     cuts = Dict{String, Any}[]
     for (node_name, node) in oldmodel.nodes
