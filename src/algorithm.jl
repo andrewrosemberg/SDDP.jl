@@ -332,6 +332,16 @@ function initialize_belief(model::PolicyGraph{T}) where {T}
     current_belief[model.root_node] = 1.0
     return current_belief
 end
+# Build problem
+function _subproblem_build!(model::PolicyGraph{T},isforward::Bool) where {T}
+    policy_graph = PolicyGraph( model.ext[:builder], 
+                                model.ext[:graph];                                
+                                isforward = isforward,
+                                optimizer = isforward ? model.ext[:param][:optimizer_forward] : model.ext[:param][:optimizer_backward],
+                                model.ext[:param]...)
+    transfer_cuts(policy_graph, model)
+    return policy_graph
+end
 
 # Internal function: perform a single forward pass of the SDDP algorithm given
 # options.
@@ -469,7 +479,8 @@ function backward_pass(
         sampled_states::Vector{Dict{Symbol, Float64}},
         objective_states::Vector{NTuple{N, Float64}},
         belief_states::Vector{Tuple{Int, Dict{T, Float64}}}) where {T, NoiseType, N}
-    for index in length(scenario_path):-1:1
+
+        for index in length(scenario_path):-1:1
         outgoing_state = sampled_states[index]
         objective_state = get(objective_states, index, nothing)
         partition_index, belief_state = get(belief_states, index, (0, nothing))
@@ -917,11 +928,25 @@ function train(
         start_time = time()
         iteration_count = 1
         has_converged = false
+
+        # Build problem
+        model_f = _subproblem_build!(model, true)
+        options_f = Options(
+            model_f,
+            model_f.initial_root_state,
+            sampling_scheme,
+            risk_measure,
+            cycle_discretization_delta,
+            refine_at_similar_nodes
+        )
+
         while !has_converged
             TimerOutputs.@timeit SDDP_TIMER "forward_pass" begin
-                forward_trajectory = forward_pass(model, options)
+                # transfer cuts
+                transfer_cuts(model_f, model)
+                forward_trajectory = forward_pass(model_f, options_f)
             end
-            TimerOutputs.@timeit SDDP_TIMER "backward_pass" begin
+            TimerOutputs.@timeit SDDP_TIMER "backward_pass" begin                
                 backward_pass(
                     model, options, forward_trajectory.scenario_path,
                     forward_trajectory.sampled_states,
@@ -989,6 +1014,8 @@ function _simulate(model::PolicyGraph{T},
                    sampling_scheme::AbstractSamplingScheme,
                    custom_recorders::Dict{Symbol, Function},
                    require_duals::Bool) where {T}
+    # Build problem
+    model = _subproblem_build!(model, true)
     # Sample a scenario path.
     scenario_path, terminated_due_to_cycle = sample_scenario(
         model, sampling_scheme)

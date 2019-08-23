@@ -506,3 +506,109 @@ function read_cuts_from_file(
     end
     return
 end
+
+"""
+    build_cuts(model::PolicyGraph{T}) where {T}
+
+Build cuts.
+"""
+function transfer_cuts(model::PolicyGraph{T},oldmodel::PolicyGraph{T};digts::Int=10) where {T}
+    node_name_parser = _node_name_parser
+    cuts = Dict{String, Any}[]
+    for (node_name, node) in oldmodel.nodes
+        if node.objective_state !== nothing
+            error("Unable to write cuts to file because model contains " *
+                  "objective states.")
+        end
+        node_cuts = Dict(
+            "node" => string(node_name),
+            "single_cuts" => Dict{String, Any}[],
+            "multi_cuts" => Dict{String, Any}[],
+            "risk_set_cuts" => Vector{Float64}[]
+        )
+        for cut in node.bellman_function.global_theta.cut_oracle.cuts
+            cut_coef_aux = copy(cut.coefficients)
+            for (ky,val) in cut_coef_aux
+                cut_coef_aux[ky] = round.(val,digits=digts)
+            end
+            push!(node_cuts["single_cuts"], Dict(
+                "intercept" => round.(cut.intercept,digits=digts),
+                "coefficients" => cut_coef_aux
+            ))
+        end
+        for (i, theta) in enumerate(node.bellman_function.local_thetas)
+            for cut in theta.cut_oracle.cuts
+                cut_coef_aux = copy(cut.coefficients)
+                for (ky,val) in cut_coef_aux
+                    cut_coef_aux[ky] = round.(val,digits=digts)
+                end
+                push!(node_cuts["multi_cuts"], Dict(
+                    "realization" => i,
+                    "intercept" => round.(cut.intercept,digits=digts),
+                    "coefficients" => cut_coef_aux
+                ))
+            end
+        end
+        for p in node.bellman_function.risk_set_cuts
+            push!(node_cuts["risk_set_cuts"], p)
+        end
+        push!(cuts, node_cuts)
+    end
+
+    # So the cuts are written to file after they have been normalized
+    # to `θᴳ ≥ [θᵏ - ⟨πᵏ, xᵏ⟩] + ⟨πᵏ, x′⟩`. Thus, we pass `xᵏ=0` so that
+    # eveything works out okay.
+    # Importantly, don't run cut selection when adding these cuts.
+    for node_cuts in cuts
+        node_name = node_name_parser(T, node_cuts["node"])::T
+        node = model[node_name]
+        bf = node.bellman_function
+        # Loop through and add the single-cuts.
+        for json_cut in node_cuts["single_cuts"]
+            coefficients = Dict{Symbol, Float64}(
+                Symbol(k) => v for (k, v) in json_cut["coefficients"])
+            _add_cut(
+                bf.global_theta,
+                json_cut["intercept"],
+                coefficients,
+                Dict(key=>0.0 for key in keys(coefficients)),
+                cut_selection = false
+            )
+        end
+        # Loop through and add the multi-cuts. There are two parts:
+        #  (i) the cuts w.r.t. the state variable x
+        # (ii) the cuts that define the risk set
+        # There is one additional complication: if these cuts are being read
+        # into a new model, the local theta variables may not exist yet.
+        if length(node_cuts["risk_set_cuts"]) > 0
+            _add_locals_if_necessary(
+                bf, length(first(node_cuts["risk_set_cuts"])))
+        end
+        for json_cut in node_cuts["multi_cuts"]
+            coefficients = Dict{Symbol, Float64}(
+                Symbol(k) => v for (k, v) in json_cut["coefficients"])
+            _add_cut(
+                bf.local_thetas[json_cut["realization"]],
+                json_cut["intercept"],
+                coefficients,
+                Dict(key=>0.0 for key in keys(coefficients)),
+                cut_selection = false
+            )
+        end
+        # Here is part (ii): adding the constraints that define the risk-set
+        # representation of the risk measure.
+        for json_cut in node_cuts["risk_set_cuts"]
+            expr = @expression(node.subproblem,
+                bf.global_theta.theta - sum(
+                    p * V.theta for (p, V) in zip(json_cut, bf.local_thetas)
+                )
+            )
+            if JuMP.objective_sense(node.subproblem) == MOI.MIN_SENSE
+                @constraint(node.subproblem, expr >= 0)
+            else
+                @constraint(node.subproblem, expr <= 0)
+            end
+        end
+    end
+    return
+end

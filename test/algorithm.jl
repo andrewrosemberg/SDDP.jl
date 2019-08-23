@@ -287,4 +287,5 @@ end
         :myid => (args...) -> Distributed.myid()
     ))
     @test size(unique([results[s][1][:myid] for s=1:np]),1) == np
+
 end
