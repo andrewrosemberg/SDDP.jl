@@ -8,7 +8,7 @@ module SDDP
 import Reexport
 Reexport.@reexport using JuMP
 
-import JSON, Printf, Random, RecipesBase, TimerOutputs, Statistics
+import JSON, Printf, Random, RecipesBase, TimerOutputs, Statistics, Distributed
 import MathOptFormat
 
 export @stageobjective

@@ -1028,14 +1028,26 @@ If you do not require dual variables (or if they are not available), pass
 `require_duals = false`.
 """
 function simulate(model::PolicyGraph,
-                  number_replications::Int = 1,
-                  variables::Vector{Symbol} = Symbol[];
-                  sampling_scheme::AbstractSamplingScheme =
-                      InSampleMonteCarlo(),
-                  custom_recorders = Dict{Symbol, Function}(),
-                  require_duals::Bool = true)
-    return map(i -> _simulate(
-            model, variables; sampling_scheme = sampling_scheme,
-            custom_recorders = custom_recorders, require_duals = require_duals),
+    number_replications::Int = 1,
+    variables::Vector{Symbol} = Symbol[];
+    sampling_scheme::AbstractSamplingScheme =
+        InSampleMonteCarlo(),
+    custom_recorders = Dict{Symbol, Function}(),
+    require_duals::Bool = true,
+    parallel_workers = Distributed.workers())
+
+    if length(parallel_workers) < 2 
+        return map(i -> _simulate(
+        model, variables; sampling_scheme = sampling_scheme,
+        custom_recorders = custom_recorders, require_duals = require_duals),
         1:number_replications)
+    else
+        wp = Distributed.CachingPool(parallel_workers)
+        let model = model
+            return Distributed.pmap(i -> _simulate(
+                model, variables; sampling_scheme = sampling_scheme,
+                custom_recorders = custom_recorders, require_duals = require_duals),
+                wp, 1:number_replications)
+        end
+    end
 end
