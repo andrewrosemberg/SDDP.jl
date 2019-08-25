@@ -134,7 +134,7 @@ function Historical(scenarios::Vector{Vector{Tuple{T, S}}},
                     probability::Vector{Float64} =
                         fill(1.0 / length(scenarios), length(scenarios))
                     ) where {T, S}
-    if sum(probability) != 1.0
+    if !isapprox(sum(probability), 1.0, atol=1e-6)
         error("Probability of historical scenarios must sum to 1. Currently: " *
               "$(sum(probability)).")
     end
