@@ -258,6 +258,7 @@ function solve_subproblem(model::PolicyGraph{T},
     JuMP.optimize!(node.subproblem)
     # Test for primal feasibility.
     if !(JuMP.primal_status(node.subproblem) in [JuMP.MOI.FEASIBLE_POINT;JuMP.MOI.NEARLY_FEASIBLE_POINT])
+        @info "ERROR Primal Status: "*JuMP.primal_status(node.subproblem)
         write_subproblem_to_file(node, "subproblem", throw_error = true)
     end
     # If require_duals = true, check for dual feasibility and return a dict with
@@ -266,6 +267,7 @@ function solve_subproblem(model::PolicyGraph{T},
     # type-stability.
     dual_values = if require_duals
         if !(JuMP.dual_status(node.subproblem) in [JuMP.MOI.FEASIBLE_POINT;JuMP.MOI.NEARLY_FEASIBLE_POINT])
+            @info "ERROR Dual Status: "*JuMP.dual_status(node.subproblem)
             write_subproblem_to_file(node, "subproblem", throw_error = true)
         end
         get_dual_variables(node)
