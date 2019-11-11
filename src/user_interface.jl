@@ -322,9 +322,21 @@ mutable struct Node{T}
     objective_state::Union{Nothing, ObjectiveState}
     # For dynamic interpolation of belief states.
     belief_state::Union{Nothing, BeliefState{T}}
+    pre_optimize_hook::Union{Nothing, Function}
+    post_optimize_hook::Union{Nothing, Function}
     # An extension dictionary. This is a useful place for packages that extend
     # SDDP.jl to stash things.
     ext::Dict{Symbol, Any}
+end
+
+function pre_optimize_hook(f::Function, node::Node)
+    node.pre_optimize_hook = f
+    return
+end
+
+function post_optimize_hook(f::Function, node::Node)
+    node.post_optimize_hook = f
+    return
 end
 
 mutable struct PolicyGraph{T}

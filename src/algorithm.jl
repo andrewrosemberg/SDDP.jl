@@ -255,6 +255,15 @@ function solve_subproblem(model::PolicyGraph{T},
     # set the objective.
     set_incoming_state(node, state)
     parameterize(node, noise)
+
+    pre_optimize_ret = if node.pre_optimize_hook !== nothing
+        node.pre_optimize_hook(
+            model, node, state, noise, scenario_path, require_duals
+        )
+    else
+        nothing
+    end
+
     JuMP.optimize!(node.subproblem)
     # Test for primal feasibility.
     if !(JuMP.primal_status(node.subproblem) in [JuMP.MOI.FEASIBLE_POINT;JuMP.MOI.NEARLY_FEASIBLE_POINT])
@@ -274,6 +283,11 @@ function solve_subproblem(model::PolicyGraph{T},
     else
         Dict{Symbol, Float64}()
     end
+
+    if node.post_optimize_hook !== nothing
+        node.post_optimize_hook(pre_optimize_ret)
+    end
+
     return (
         state = get_outgoing_state(node),  # The outgoing state variable x'.
         duals = dual_values,  # The dual variables on the incoming state variables.
