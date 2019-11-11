@@ -258,7 +258,7 @@ function solve_subproblem(model::PolicyGraph{T},
 
     pre_optimize_ret = if node.pre_optimize_hook !== nothing
         node.pre_optimize_hook(
-            model, node, state, noise, scenario_path, require_duals
+            model, node, state, noise, require_duals
         )
     else
         nothing
