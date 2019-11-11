@@ -528,6 +528,8 @@ function PolicyGraph(builder::Function, graph::Graph{T};
             nothing,
             # And for belief states.
             nothing,
+            nothing,
+            nothing,
             Dict{Symbol, Any}()
         )
         subproblem.ext[:sddp_policy_graph] = policy_graph
