@@ -748,7 +748,9 @@ function train(
     cut_type = SDDP.SINGLE_CUT,
     cycle_discretization_delta::Float64 = 0.0,
     refine_at_similar_nodes::Bool = true,
-    cut_deletion_minimum::Int = 1
+    cut_deletion_minimum::Int = 1,
+    b_hook::Function= function b_hook(model) end,
+    f_hook::Function= function f_hook(model) end
 )
     # Reset the TimerOutput.
     TimerOutputs.reset_timer!(SDDP_TIMER)
@@ -786,6 +788,7 @@ function train(
         @warn("You haven't specified a stopping rule! You can only terminate " *
               "the call to SDDP.train via a keyboard interrupt ([CTRL+C]).")
     end
+    b_hook(model)
     options = Options(
         model,
         model.initial_root_state,
@@ -820,6 +823,8 @@ function train(
 
         # Build problem
         model_f = _subproblem_build!(model, true)
+        f_hook(model_f)
+        
         options_f = Options(
             model_f,
             model_f.initial_root_state,
@@ -828,6 +833,13 @@ function train(
             cycle_discretization_delta,
             refine_at_similar_nodes
         )
+        for (key, node) in model_f.nodes
+            node.bellman_function.cut_type = cut_type
+            node.bellman_function.global_theta.cut_oracle.deletion_minimum = cut_deletion_minimum
+            for oracle in node.bellman_function.local_thetas
+                oracle.cut_oracle.deletion_minimum = cut_deletion_minimum
+            end
+        end
 
         while !has_converged
             TimerOutputs.@timeit SDDP_TIMER "forward_pass" begin
