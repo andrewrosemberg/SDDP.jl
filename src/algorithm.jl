@@ -284,16 +284,18 @@ function solve_subproblem(model::PolicyGraph{T},
         Dict{Symbol, Float64}()
     end
 
-    if node.post_optimize_hook !== nothing
-        node.post_optimize_hook(pre_optimize_ret)
-    end
-
-    return (
+    ret = (
         state = get_outgoing_state(node),  # The outgoing state variable x'.
         duals = dual_values,  # The dual variables on the incoming state variables.
         stage_objective = stage_objective_value(node.stage_objective),
         objective = JuMP.objective_value(node.subproblem)  # C(x, u, ω) + θ
     )
+
+    if node.post_optimize_hook !== nothing
+        node.post_optimize_hook(pre_optimize_ret)
+    end
+
+    return ret
 end
 
 # Internal function to get the objective state at the root node.
