@@ -512,7 +512,7 @@ end
 
 Build cuts.
 """
-function transfer_cuts(model::PolicyGraph{T},oldmodel::PolicyGraph{T};digts::Int=10) where {T}
+function transfer_cuts(model::PolicyGraph{T},oldmodel::PolicyGraph{T}) where {T}
     node_name_parser = _node_name_parser
     cuts = Dict{String, Any}[]
     for (node_name, node) in oldmodel.nodes
@@ -526,25 +526,28 @@ function transfer_cuts(model::PolicyGraph{T},oldmodel::PolicyGraph{T};digts::Int
             "multi_cuts" => Dict{String, Any}[],
             "risk_set_cuts" => Vector{Float64}[]
         )
-        for cut in node.bellman_function.global_theta.cut_oracle.cuts
+        nscuts = size(node.bellman_function.global_theta.cut_oracle.cuts,1)
+        for i = model.ext[:naddcuts]+1:nscuts
+            cut = node.bellman_function.global_theta.cut_oracle.cuts[i]
             cut_coef_aux = copy(cut.coefficients)
             for (ky,val) in cut_coef_aux
-                cut_coef_aux[ky] = round.(val,digits=digts)
+                cut_coef_aux[ky] = val
             end
             push!(node_cuts["single_cuts"], Dict(
-                "intercept" => round.(cut.intercept,digits=digts),
+                "intercept" => cut.intercept,
                 "coefficients" => cut_coef_aux
             ))
         end
+        model.ext[:naddcuts] = nscuts        
         for (i, theta) in enumerate(node.bellman_function.local_thetas)
             for cut in theta.cut_oracle.cuts
                 cut_coef_aux = copy(cut.coefficients)
                 for (ky,val) in cut_coef_aux
-                    cut_coef_aux[ky] = round.(val,digits=digts)
+                    cut_coef_aux[ky] = val
                 end
                 push!(node_cuts["multi_cuts"], Dict(
                     "realization" => i,
-                    "intercept" => round.(cut.intercept,digits=digts),
+                    "intercept" => cut.intercept,
                     "coefficients" => cut_coef_aux
                 ))
             end
