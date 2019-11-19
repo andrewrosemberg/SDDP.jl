@@ -513,6 +513,9 @@ end
 Build cuts.
 """
 function transfer_cuts(model::PolicyGraph{T},oldmodel::PolicyGraph{T}) where {T}
+    if !haskey(model.ext, :naddcuts)
+        model.ext[:naddcuts] = 0
+    end
     node_name_parser = _node_name_parser
     cuts = Dict{String, Any}[]
     for (node_name, node) in oldmodel.nodes
