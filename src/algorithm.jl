@@ -881,7 +881,7 @@ function train(
                     time() - start_time
                 )
             )
-            has_converged, status = convergence_test(model, log, stopping_rules)
+            has_converged, status = convergence_test(model_f, log, stopping_rules)
             if print_level > 0
                 print_iteration(stdout, log[end])
                 print_iteration(log_file_handle, log[end])
@@ -1064,9 +1064,6 @@ function simulate(model::PolicyGraph,
     custom_recorders = Dict{Symbol, Function}(),
     require_duals::Bool = true,
     parallel_workers = Distributed.workers())
-
-    # Build problem
-    model = _subproblem_build!(model, true)
 
     if length(parallel_workers) < 2 
         return map(i -> _simulate(
