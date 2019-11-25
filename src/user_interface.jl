@@ -536,6 +536,7 @@ function PolicyGraph(builder::Function, graph::Graph{T};
             nothing,
             nothing,
             nothing,
+            nothing,
             Dict{Symbol, Any}()
         )
         subproblem.ext[:sddp_policy_graph] = policy_graph
