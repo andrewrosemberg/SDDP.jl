@@ -265,31 +265,34 @@ function solve_subproblem(model::PolicyGraph{T},
     end
 
     JuMP.optimize!(node.subproblem)
-    # Test for primal feasibility.
     if !(JuMP.primal_status(node.subproblem) in [JuMP.MOI.FEASIBLE_POINT;JuMP.MOI.NEARLY_FEASIBLE_POINT])
         @info "ERROR Primal Status: "*string(JuMP.primal_status(node.subproblem))
-        write_subproblem_to_file(node, "subproblem", throw_error = true)
     end
-    # If require_duals = true, check for dual feasibility and return a dict with
-    # the dual on the fixed constraint associated with each incoming state
-    # variable. If require_duals=false, return an empty dictionary for
-    # type-stability.
-    dual_values = if require_duals
-        if !(JuMP.dual_status(node.subproblem) in [JuMP.MOI.FEASIBLE_POINT;JuMP.MOI.NEARLY_FEASIBLE_POINT])
-            @info "ERROR Dual Status: "*string(JuMP.dual_status(node.subproblem))
-            write_subproblem_to_file(node, "subproblem", throw_error = true)
-        end
-        get_dual_variables(node)
-    else
-        Dict{Symbol, Float64}()
+    if !(JuMP.dual_status(node.subproblem) in [JuMP.MOI.FEASIBLE_POINT;JuMP.MOI.NEARLY_FEASIBLE_POINT])
+        @info "ERROR Dual Status: "*string(JuMP.dual_status(node.subproblem))
     end
 
-    ret = (
+    # Test for feasibility.
+    ret = if !(JuMP.primal_status(node.subproblem) in [JuMP.MOI.FEASIBLE_POINT;JuMP.MOI.NEARLY_FEASIBLE_POINT]) || !(JuMP.dual_status(node.subproblem) in [JuMP.MOI.FEASIBLE_POINT;JuMP.MOI.NEARLY_FEASIBLE_POINT])
+        primal_stats, dual_stats, error_optimize_ret = if node.error_optimize_hook !== nothing
+            node.error_optimize_hook(
+                model, node, state, noise, require_duals
+            )
+        else
+            nothing
+        end
+        if !(primal_stats in [JuMP.MOI.FEASIBLE_POINT;JuMP.MOI.NEARLY_FEASIBLE_POINT]) || !(dual_stats in [JuMP.MOI.FEASIBLE_POINT;JuMP.MOI.NEARLY_FEASIBLE_POINT])
+            write_subproblem_to_file(node, "subproblem", throw_error = true)
+        end
+        error_optimize_ret
+    else
+        (
         state = get_outgoing_state(node),  # The outgoing state variable x'.
-        duals = dual_values,  # The dual variables on the incoming state variables.
+        duals = require_duals ? get_dual_variables(node) : Dict{Symbol, Float64}(),  # The dual variables on the incoming state variables.
         stage_objective = stage_objective_value(node.stage_objective),
         objective = JuMP.objective_value(node.subproblem)  # C(x, u, ω) + θ
-    )
+        )
+    end
 
     if node.post_optimize_hook !== nothing
         node.post_optimize_hook(pre_optimize_ret)
@@ -303,48 +306,51 @@ function solve_subproblem_simulate(model::PolicyGraph{T},
     state::Dict{Symbol, Float64},
     noise;
     require_duals::Bool) where {T}
-# Parameterize the model. First, fix the value of the incoming state
-# variables. Then parameterize the model depending on `noise`. Finally,
-# set the objective.
-set_incoming_state(node, state)
-parameterize(node, noise)
+    # Parameterize the model. First, fix the value of the incoming state
+    # variables. Then parameterize the model depending on `noise`. Finally,
+    # set the objective.
+    set_incoming_state(node, state)
+    parameterize(node, noise)
 
-pre_optimize_ret = if node.pre_optimize_hook !== nothing
-    node.pre_optimize_hook(
-    model, node, state, noise, require_duals
-    )
-else
-    nothing
-end
+    pre_optimize_ret = if node.pre_optimize_hook !== nothing
+        node.pre_optimize_hook(
+        model, node, state, noise, require_duals
+        )
+    else
+        nothing
+    end
 
-JuMP.optimize!(node.subproblem)
-# Test for primal feasibility.
-if !(JuMP.primal_status(node.subproblem) in [JuMP.MOI.FEASIBLE_POINT;JuMP.MOI.NEARLY_FEASIBLE_POINT])
-    @info "ERROR Primal Status: "*string(JuMP.primal_status(node.subproblem))
-    write_subproblem_to_file(node, "subproblem", throw_error = true)
-end
-# If require_duals = true, check for dual feasibility and return a dict with
-# the dual on the fixed constraint associated with each incoming state
-# variable. If require_duals=false, return an empty dictionary for
-# type-stability.
-dual_values = if require_duals
-if !(JuMP.dual_status(node.subproblem) in [JuMP.MOI.FEASIBLE_POINT;JuMP.MOI.NEARLY_FEASIBLE_POINT])
-    @info "ERROR Dual Status: "*string(JuMP.dual_status(node.subproblem))
-    write_subproblem_to_file(node, "subproblem", throw_error = true)
-end
-    get_dual_variables(node)
-else
-    Dict{Symbol, Float64}()
-end
+    JuMP.optimize!(node.subproblem)
+    if !(JuMP.primal_status(node.subproblem) in [JuMP.MOI.FEASIBLE_POINT;JuMP.MOI.NEARLY_FEASIBLE_POINT])
+        @info "ERROR Primal Status: "*string(JuMP.primal_status(node.subproblem))
+    end
+    if !(JuMP.dual_status(node.subproblem) in [JuMP.MOI.FEASIBLE_POINT;JuMP.MOI.NEARLY_FEASIBLE_POINT])
+        @info "ERROR Dual Status: "*string(JuMP.dual_status(node.subproblem))
+    end
 
-ret = (
-    state = get_outgoing_state(node),  # The outgoing state variable x'.
-    duals = dual_values,  # The dual variables on the incoming state variables.
-    stage_objective = stage_objective_value(node.stage_objective),
-    objective = JuMP.objective_value(node.subproblem)  # C(x, u, ω) + θ
-)
+    # Test for feasibility.
+    ret = if !(JuMP.primal_status(node.subproblem) in [JuMP.MOI.FEASIBLE_POINT;JuMP.MOI.NEARLY_FEASIBLE_POINT]) || !(JuMP.dual_status(node.subproblem) in [JuMP.MOI.FEASIBLE_POINT;JuMP.MOI.NEARLY_FEASIBLE_POINT])
+        primal_stats, dual_stats, error_optimize_ret = if node.error_optimize_hook !== nothing
+            node.error_optimize_hook(
+                model, node, state, noise, require_duals
+            )
+        else
+            nothing
+        end
+        if !(primal_stats in [JuMP.MOI.FEASIBLE_POINT;JuMP.MOI.NEARLY_FEASIBLE_POINT]) || !(dual_stats in [JuMP.MOI.FEASIBLE_POINT;JuMP.MOI.NEARLY_FEASIBLE_POINT])
+            write_subproblem_to_file(node, "subproblem", throw_error = true)
+        end
+        error_optimize_ret
+    else
+        (
+        state = get_outgoing_state(node),  # The outgoing state variable x'.
+        duals = require_duals ? get_dual_variables(node) : Dict{Symbol, Float64}(),  # The dual variables on the incoming state variables.
+        stage_objective = stage_objective_value(node.stage_objective),
+        objective = JuMP.objective_value(node.subproblem)  # C(x, u, ω) + θ
+        )
+    end
 
-return ret, pre_optimize_ret
+    return ret, pre_optimize_ret
 end
 
 # Internal function to get the objective state at the root node.
@@ -937,6 +943,7 @@ function train(
             end
             iteration_count += 1
         end
+        model.ext[:model_f] = model_f
     catch ex
         if isa(ex, InterruptException)
             status = :interrupted

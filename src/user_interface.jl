@@ -324,6 +324,7 @@ mutable struct Node{T}
     belief_state::Union{Nothing, BeliefState{T}}
     pre_optimize_hook::Union{Nothing, Function}
     post_optimize_hook::Union{Nothing, Function}
+    error_optimize_hook::Union{Nothing, Function}
     # An extension dictionary. This is a useful place for packages that extend
     # SDDP.jl to stash things.
     ext::Dict{Symbol, Any}
@@ -336,6 +337,11 @@ end
 
 function post_optimize_hook(f::Function, node::Node)
     node.post_optimize_hook = f
+    return
+end
+
+function error_optimize_hook(f::Function, node::Node)
+    node.error_optimize_hook = f
     return
 end
 
