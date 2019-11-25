@@ -279,7 +279,7 @@ function solve_subproblem(model::PolicyGraph{T},
                 model, node, state, noise, require_duals
             )
         else
-            nothing
+            JuMP.primal_status(node.subproblem),JuMP.dual_status(node.subproblem),nothing
         end
         if !(primal_stats in [JuMP.MOI.FEASIBLE_POINT;JuMP.MOI.NEARLY_FEASIBLE_POINT]) || !(dual_stats in [JuMP.MOI.FEASIBLE_POINT;JuMP.MOI.NEARLY_FEASIBLE_POINT])
             write_subproblem_to_file(node, "subproblem", throw_error = true)
@@ -335,7 +335,7 @@ function solve_subproblem_simulate(model::PolicyGraph{T},
                 model, node, state, noise, require_duals
             )
         else
-            nothing
+            JuMP.primal_status(node.subproblem),JuMP.dual_status(node.subproblem),nothing
         end
         if !(primal_stats in [JuMP.MOI.FEASIBLE_POINT;JuMP.MOI.NEARLY_FEASIBLE_POINT]) || !(dual_stats in [JuMP.MOI.FEASIBLE_POINT;JuMP.MOI.NEARLY_FEASIBLE_POINT])
             write_subproblem_to_file(node, "subproblem", throw_error = true)
